@@ -50,8 +50,9 @@ jobs:
           PUBLIC_PR_NUMBER: ${{ github.event.number }}
           PUBLIC_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
 
-      - run: touch dist/.nojekyll
-        if: github.event.action != 'closed'
+      # No .nojekyll here: the one deploy.yml puts at the branch root covers
+      # every preview, and one inside pr-preview/pr-N/ would survive the
+      # preview's removal (the deploy action never deletes .nojekyll files).
 
       - uses: rossjrw/pr-preview-action@v1
         with:

@@ -80,8 +80,13 @@ push to `gh-pages` at the same moment. With `force: false` the deploy action
 rebases onto the branch's latest state (retrying a few times) instead of
 force-pushing over the other job's commit.
 
-**`touch dist/.nojekyll`**: without it, Pages runs Jekyll over the files,
-and Jekyll drops directories starting with `_`, including Astro's `_astro/`.
+**`touch dist/.nojekyll`** (production only): without it, Pages runs Jekyll
+over the files, and Jekyll drops directories starting with `_`, including
+Astro's `_astro/`. The file at the branch root covers the previews too.
+Previews deliberately don't add their own: the deploy action never deletes
+`.nojekyll` files, so one inside `pr-preview/pr-N/` would be left behind
+after the preview is removed. This is also why the production deploy has to
+run once before the first preview.
 
 **Concurrency:** production deploys share one group with
 `cancel-in-progress: false`, so a deploy is never killed halfway. Previews
