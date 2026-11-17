@@ -1,0 +1,23 @@
+---
+/**
+ * GitHub Pages serves dist/404.html for any address that doesn't exist on
+ * the production site. (Inside a pull-request preview, a missing address
+ * shows this same production page.)
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageBanner from '../components/PageBanner.astro';
+import { withBase } from '../utils/base';
+---
+
+<BaseLayout title="Page not found">
+	<PageBanner title="Page not found" eyebrow="404" />
+	<section class="section">
+		<div class="wrap">
+			<p>That page doesn’t exist, or it has moved.</p>
+			<p>
+				<a class="btn btn-primary" href={withBase('/')}>Go to the home page</a>
+				<a class="btn" href={withBase('/news/')}>Browse the news</a>
+			</p>
+		</div>
+	</section>
+</BaseLayout>

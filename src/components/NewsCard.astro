@@ -1,0 +1,118 @@
+---
+import { postImage, postUrl, formatDate, type Post } from '../utils/news';
+import { responsiveImage } from '../utils/images';
+import { site } from '../data/site';
+
+interface Props {
+	post: Post;
+	/** "eager" for cards above the fold. */
+	loading?: 'eager' | 'lazy';
+}
+
+const { post, loading = 'lazy' } = Astro.props;
+// 640- and 1280-wide copies: the cards sit two or three across, one on phones.
+const image = await responsiveImage(postImage(post), [640, 1280]);
+---
+
+<article class="news-card">
+	<a href={postUrl(post)} class="news-card-link">
+		<div class="news-card-media">
+			<img
+				src={image.src}
+				srcset={image.srcset || undefined}
+				sizes={image.srcset ? '(max-width: 48em) 100vw, 24rem' : undefined}
+				alt={post.data.featuredImageAlt}
+				loading={loading}
+				width="640"
+				height="427"
+			/>
+		</div>
+		<div class="news-card-body">
+			<h3>{post.data.title}</h3>
+			<p class="news-card-meta">
+				<time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+				<span aria-hidden="true"> · </span>
+				<span>{post.data.author ?? site.defaultAuthor}</span>
+			</p>
+			<p class="news-card-excerpt">{post.data.description}</p>
+		</div>
+	</a>
+</article>
+
+<style is:global>
+	/* Global (not scoped) so NewsSearch can build the same card markup in the
+	   browser for search results and still pick up these styles. */
+	.news-card {
+		height: 100%;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		overflow: hidden;
+		box-shadow: var(--shadow);
+		transition:
+			border-color 0.2s,
+			box-shadow 0.2s,
+			transform 0.15s;
+	}
+
+	.news-card:hover {
+		border-color: var(--color-accent);
+		box-shadow: var(--shadow-hover);
+		transform: translateY(-2px);
+	}
+
+	.news-card-link {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.news-card-media {
+		aspect-ratio: 3 / 2;
+		overflow: hidden;
+		background: var(--color-bg-alt);
+	}
+
+	.news-card-media img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.news-card-body {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1.1rem 1.25rem 1.3rem;
+	}
+
+	.news-card h3 {
+		margin: 0;
+		font-size: 1.3rem;
+		transition: color 0.2s;
+	}
+
+	.news-card:hover h3 {
+		color: var(--color-accent-dark);
+	}
+
+	.news-card-meta {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+	}
+
+	.news-card-excerpt {
+		display: -webkit-box;
+		flex: 1;
+		margin: 0;
+		overflow: hidden;
+		font-size: 0.95rem;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+	}
+</style>

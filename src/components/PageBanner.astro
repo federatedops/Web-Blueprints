@@ -1,0 +1,69 @@
+---
+/**
+ * The colored title band at the top of a page.
+ *
+ * `class` is passed through to the inner .wrap, so one page can opt into a
+ * different layout (e.g. class="page-banner-narrow") without changing the
+ * banner for every other page. Prefer this over styling the banner's
+ * insides from the page's own <style>: scoped styles in a parent never
+ * reach elements a child component renders.
+ */
+interface Props {
+	title: string;
+	/** Small label above the title, e.g. the section name. */
+	eyebrow?: string;
+	class?: string;
+}
+
+const { title, eyebrow, class: className } = Astro.props;
+---
+
+<div class="page-banner">
+	<div class:list={['wrap', 'page-banner-inner', className]}>
+		<slot name="before-title" />
+		{eyebrow && <p class="page-banner-eyebrow">{eyebrow}</p>}
+		<h1>{title}</h1>
+		<slot />
+	</div>
+</div>
+
+<style>
+	.page-banner {
+		background:
+			radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.08) 0 18rem, transparent 18rem),
+			linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+		color: #fff;
+	}
+
+	.page-banner-inner {
+		padding-top: 2.75rem;
+		padding-bottom: 2.75rem;
+	}
+
+	.page-banner-narrow {
+		max-width: 48rem;
+	}
+
+	h1 {
+		margin: 0;
+		color: #fff;
+		font-size: clamp(2rem, 1.4rem + 2.5vw, 3rem);
+	}
+
+	.page-banner-eyebrow {
+		margin: 0 0 0.5rem;
+		font-size: 0.85rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-on-primary-muted);
+	}
+
+	.page-banner-inner :global(p) {
+		color: var(--color-on-primary-muted);
+	}
+
+	.page-banner-inner :global(a) {
+		color: #fff;
+	}
+</style>

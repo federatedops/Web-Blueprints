@@ -1,0 +1,82 @@
+name: Deploy PR preview
+
+# Builds every pull request with its own base path and publishes it to the
+# gh-pages branch under pr-preview/pr-<number>/, i.e.
+#   https://<owner>.github.io/<repo>/pr-preview/pr-<number>/
+#
+# The preview is rebuilt on every push to the PR, linked from a sticky
+# comment on the PR, and deleted when the PR is merged or closed.
+#
+# Pull requests from forks get a read-only token and can't push to gh-pages,
+# so they get a plain build check instead (the build-check job below).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# A newer push to the same PR cancels the older, still-running preview build.
+concurrency:
+  group: preview-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: github.event.action != 'closed'
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+        if: github.event.action != 'closed'
+
+      - run: npm run build
+        if: github.event.action != 'closed'
+        env:
+          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io', github.repository_owner) }}
+          # The production base path plus this PR's preview directory.
+          BASE_PATH: ${{ vars.BASE_PATH || format('/{0}', github.event.repository.name) }}/pr-preview/pr-${{ github.event.number }}
+          # Shows the "Preview of pull request #N" ribbon and keeps the
+          # preview out of search engines (see src/layouts/BaseLayout.astro).
+          PUBLIC_PR_NUMBER: ${{ github.event.number }}
+          PUBLIC_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+
+      - run: touch dist/.nojekyll
+        if: github.event.action != 'closed'
+
+      - uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          # Deploy on opened/reopened/synchronize, remove on closed.
+          action: ${{ github.event.action == 'closed' && 'remove' || 'deploy' }}
+          # Set the PREVIEW_BASE_URL repository variable to your custom
+          # domain (e.g. www.example.com) once you have one; empty means
+          # <owner>.github.io/<repo>.
+          pages-base-url: ${{ vars.PREVIEW_BASE_URL }}
+
+  build-check:
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name != github.repository
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build

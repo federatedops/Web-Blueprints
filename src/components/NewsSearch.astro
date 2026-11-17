@@ -1,0 +1,176 @@
+---
+/**
+ * Search box for the news archive. Typing filters every published post
+ * (not only the current page) using /news/search-index.json, and swaps the
+ * page's card grid for the matches. The query is kept in the URL (?q=...),
+ * so a search result page can be bookmarked or shared.
+ *
+ * The page must contain:
+ *   <div data-static-results>  the normal card grid (hidden while searching)
+ *   <div data-search-results hidden>  where matches are rendered
+ * and, optionally, a .pagination nav (hidden while searching).
+ *
+ * Without JavaScript the box is a plain GET form, and the page still lists
+ * the posts normally.
+ */
+import { withBase } from '../utils/base';
+
+interface Props {
+	/** Restrict search to one category (category pages). */
+	category?: string;
+	/** What the placeholder says it searches, e.g. "news" or "Guides". */
+	label?: string;
+}
+
+const { category, label = 'news' } = Astro.props;
+---
+
+<div class="news-search" data-news-search data-index-url={withBase('/news/search-index.json')} data-category={category ?? ''}>
+	<form role="search" method="get">
+		<label class="sr-only" for="news-search-q">Search {label}</label>
+		<input id="news-search-q" type="search" name="q" placeholder={`Search ${label}…`} autocomplete="off" enterkeyhint="search" />
+		<button type="submit" class="btn btn-primary">Search</button>
+	</form>
+	<p class="news-search-status" aria-live="polite" data-news-status></p>
+</div>
+
+<style>
+	.news-search {
+		max-width: 36rem;
+		margin: 0 0 2rem;
+	}
+
+	form {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	input {
+		flex: 1;
+		min-width: 0;
+		padding: 0.65rem 0.9rem;
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		font: inherit;
+	}
+
+	input:focus-visible {
+		border-color: var(--color-primary);
+	}
+
+	.news-search-status {
+		min-height: 1.5rem;
+		margin: 0.5rem 0 0;
+		font-size: 0.9rem;
+		color: var(--color-text-muted);
+	}
+</style>
+
+<script>
+	interface Entry {
+		url: string;
+		title: string;
+		description: string;
+		date: string;
+		dateLabel: string;
+		author: string;
+		categories: string[];
+		tags: string[];
+		image: string;
+		imageAlt: string;
+	}
+
+	const escapeHtml = (s: string) =>
+		s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+	// Case- and accent-insensitive.
+	const normalize = (s: string) =>
+		s
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[̀-ͯ]/g, '');
+
+	// Same markup and classes as NewsCard.astro, whose styles are global.
+	const card = (e: Entry) => `<article class="news-card">
+		<a href="${escapeHtml(e.url)}" class="news-card-link">
+			<div class="news-card-media"><img src="${escapeHtml(e.image)}" alt="${escapeHtml(e.imageAlt)}" loading="lazy" width="640" height="427" /></div>
+			<div class="news-card-body">
+				<h3>${escapeHtml(e.title)}</h3>
+				<p class="news-card-meta"><time datetime="${e.date}">${escapeHtml(e.dateLabel)}</time><span aria-hidden="true"> · </span><span>${escapeHtml(e.author)}</span></p>
+				<p class="news-card-excerpt">${escapeHtml(e.description)}</p>
+			</div>
+		</a>
+	</article>`;
+
+	document.querySelectorAll<HTMLElement>('[data-news-search]').forEach((root) => {
+		const form = root.querySelector('form')!;
+		const input = root.querySelector<HTMLInputElement>('input[type="search"]')!;
+		const status = root.querySelector<HTMLElement>('[data-news-status]')!;
+		const staticResults = document.querySelector<HTMLElement>('[data-static-results]');
+		const searchResults = document.querySelector<HTMLElement>('[data-search-results]');
+		const pagination = document.querySelector<HTMLElement>('.pagination');
+		if (!staticResults || !searchResults) return;
+
+		const category = root.dataset.category || '';
+		let index: Promise<Entry[]> | undefined;
+		const loadIndex = () =>
+			(index ??= fetch(root.dataset.indexUrl!)
+				.then((r) => r.json() as Promise<Entry[]>)
+				.then((all) => (category ? all.filter((e) => e.categories.includes(category)) : all)));
+
+		let latest = 0;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+
+		async function run(raw: string) {
+			const query = raw.trim();
+			const request = ++latest;
+
+			const url = new URL(location.href);
+			if (query) url.searchParams.set('q', query);
+			else url.searchParams.delete('q');
+			history.replaceState(null, '', url);
+
+			if (!query) {
+				staticResults!.hidden = false;
+				searchResults!.hidden = true;
+				if (pagination) pagination.hidden = false;
+				status.textContent = '';
+				return;
+			}
+
+			status.textContent = 'Searching…';
+			const entries = await loadIndex();
+			// A newer keystroke started its own search while this one waited.
+			if (request !== latest) return;
+
+			const words = normalize(query).split(/[^a-z0-9]+/).filter(Boolean);
+			const hits = entries.filter((e) => {
+				const haystack = normalize([e.title, e.description, e.author, ...e.categories, ...e.tags].join(' '));
+				return words.every((w) => haystack.includes(w));
+			});
+
+			searchResults!.innerHTML = hits.map(card).join('');
+			staticResults!.hidden = true;
+			searchResults!.hidden = false;
+			if (pagination) pagination.hidden = true;
+			status.textContent = hits.length === 0 ? `No posts match “${query}”.` : `${hits.length} ${hits.length === 1 ? 'post matches' : 'posts match'} “${query}”.`;
+		}
+
+		input.addEventListener('input', () => {
+			clearTimeout(timer);
+			timer = setTimeout(() => run(input.value), 175);
+		});
+
+		form.addEventListener('submit', (e) => {
+			e.preventDefault();
+			clearTimeout(timer);
+			run(input.value);
+		});
+
+		const initial = new URL(location.href).searchParams.get('q');
+		if (initial) {
+			input.value = initial;
+			run(initial);
+		}
+	});
+</script>
