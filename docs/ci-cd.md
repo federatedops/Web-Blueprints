@@ -139,7 +139,7 @@ it.
 - **Branch size:** each deploy is a commit with the full site. For a site
   with many large images, consider occasionally squashing `gh-pages` history
   (the branch is regenerated output; nothing on it is hand-edited).
-- **Action versions:** the workflows pin major versions (`@v4`, `@v1`).
+- **Action versions:** the workflows pin major versions (`@v7`, `@v4`, `@v1`).
   Dependabot can keep them current:
 
   ```yaml
