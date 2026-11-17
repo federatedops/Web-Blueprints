@@ -1,0 +1,106 @@
+---
+/**
+ * One alternating image + text section. Used directly on the homepage and,
+ * through the `rows:` frontmatter field, on any Markdown page
+ * (src/pages/[...slug].astro), so editors get the same layout without
+ * touching code.
+ *
+ * Without an image the text spans the full width.
+ */
+import MediaImage from './MediaImage.astro';
+import { withBase } from '../utils/base';
+
+interface Props {
+	heading: string;
+	paragraphs: string[];
+	image?: string;
+	imageAlt?: string;
+	cta?: { label: string; href: string };
+	/** Image on the right. */
+	reverse?: boolean;
+	/** "alt": the light gray background, to separate neighboring rows. */
+	variant?: 'default' | 'alt';
+	id?: string;
+	class?: string;
+}
+
+const { heading, paragraphs, image, imageAlt = '', cta, reverse = false, variant = 'default', id, class: className } = Astro.props;
+---
+
+<section id={id} class:list={['feature-row', `feature-row--${variant}`, className]}>
+	<div class:list={['wrap', 'feature-row-grid', { 'feature-row-grid--reverse': reverse, 'feature-row-grid--text-only': !image }]}>
+		{
+			image && (
+				<div class="feature-row-media">
+					<MediaImage path={image} alt={imageAlt} width={960} sizes="(max-width: 48em) 100vw, 36rem" />
+				</div>
+			)
+		}
+		<div class="feature-row-text">
+			<div class="section-title-row">
+				<h2>{heading}</h2>
+				<span class="heading-line" aria-hidden="true"></span>
+			</div>
+			{paragraphs.map((p) => <p>{p}</p>)}
+			{
+				cta && (
+					<p>
+						<a class="btn btn-primary" href={withBase(cta.href)}>
+							{cta.label}
+						</a>
+					</p>
+				)
+			}
+		</div>
+	</div>
+</section>
+
+<style>
+	.feature-row {
+		padding: var(--content-section-padding) 0;
+	}
+
+	.feature-row--alt {
+		background: var(--color-bg-alt);
+	}
+
+	.feature-row-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 3rem;
+		align-items: center;
+	}
+
+	.feature-row-grid--reverse .feature-row-media {
+		order: 2;
+	}
+
+	.feature-row-grid--text-only {
+		grid-template-columns: 1fr;
+		max-width: 52rem;
+	}
+
+	.feature-row-media :global(img) {
+		display: block;
+		width: 100%;
+		aspect-ratio: 3 / 2;
+		object-fit: cover;
+		border-radius: var(--radius);
+		box-shadow: var(--shadow);
+	}
+
+	.feature-row-text p {
+		font-size: 1.05rem;
+	}
+
+	@media (max-width: 48em) {
+		.feature-row-grid {
+			grid-template-columns: 1fr;
+			gap: 1.75rem;
+		}
+
+		.feature-row-grid--reverse .feature-row-media {
+			order: 0;
+		}
+	}
+</style>

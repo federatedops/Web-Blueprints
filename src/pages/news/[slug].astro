@@ -1,0 +1,171 @@
+---
+/**
+ * One news post: banner (categories, title, date, author), featured image,
+ * optional call-to-action band, the story, share buttons, and related posts.
+ */
+import { render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageBanner from '../../components/PageBanner.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import NewsCard from '../../components/NewsCard.astro';
+import ShareButtons from '../../components/ShareButtons.astro';
+import { site } from '../../data/site';
+import { withBase } from '../../utils/base';
+import { responsiveImage, largestUrl } from '../../utils/images';
+import { getPublishedPosts, postSlug, postImage, formatDate, categoryLabel, categoryUrl, relatedPosts, type Post } from '../../utils/news';
+
+export async function getStaticPaths() {
+	const posts = await getPublishedPosts();
+	return posts.map((post) => ({ params: { slug: postSlug(post) }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { Content } = await render(post);
+const all = await getPublishedPosts();
+const related = relatedPosts(post, all);
+
+const imagePath = postImage(post);
+const hero = await responsiveImage(imagePath, [800, 1600]);
+const author = post.data.author ?? site.defaultAuthor;
+---
+
+<BaseLayout
+	title={post.data.title}
+	description={post.data.description}
+	image={post.data.socialImage ?? imagePath}
+	imageFocus={post.data.socialFocus}
+	type="article"
+>
+	<PageBanner title={post.data.title} class="page-banner-narrow">
+		<p slot="before-title" class="article-crumbs">
+			<a href={withBase('/news/')}>News</a>
+			{
+				post.data.categories.map((c) => (
+					<>
+						<span aria-hidden="true"> / </span>
+						<a href={categoryUrl(c)}>{categoryLabel(c)}</a>
+					</>
+				))
+			}
+		</p>
+		<p class="article-meta">
+			<time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time> · {author}
+			{
+				post.data.updatedDate && (
+					<>
+						{' '}
+						· Updated <time datetime={post.data.updatedDate.toISOString()}>{formatDate(post.data.updatedDate)}</time>
+					</>
+				)
+			}
+		</p>
+	</PageBanner>
+
+	{post.data.cta && <CtaBand {...post.data.cta} />}
+
+	<article class="wrap article">
+		<a class="article-image" href={largestUrl(hero)}>
+			<img
+				src={hero.src}
+				srcset={hero.srcset || undefined}
+				sizes="(max-width: 48rem) 100vw, 48rem"
+				alt={post.data.featuredImageAlt}
+				width={hero.width || undefined}
+				height={hero.height || undefined}
+				fetchpriority="high"
+			/>
+		</a>
+
+		<div class="prose">
+			<Content />
+		</div>
+
+		<footer class="article-footer">
+			<ShareButtons title={post.data.title} />
+			{
+				post.data.tags.length > 0 && (
+					<p class="article-tags">
+						Tags:{' '}
+						{post.data.tags.map((t) => (
+							<a class="chip" href={withBase(`/news/?q=${encodeURIComponent(t)}`)}>
+								{t}
+							</a>
+						))}
+					</p>
+				)
+			}
+		</footer>
+	</article>
+
+	{
+		related.length > 0 && (
+			<section class="section section-alt">
+				<div class="wrap">
+					<div class="section-header section-title-row">
+						<h2>Keep reading</h2>
+						<span class="heading-line" aria-hidden="true" />
+					</div>
+					<div class="card-grid">
+						{related.map((p) => (
+							<NewsCard post={p} />
+						))}
+					</div>
+				</div>
+			</section>
+		)
+	}
+</BaseLayout>
+
+<style>
+	.article {
+		max-width: 48rem;
+		padding-top: 2.5rem;
+		padding-bottom: 3.5rem;
+	}
+
+	.article-crumbs {
+		margin: 0 0 0.75rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+
+	.article-crumbs a {
+		text-decoration: none;
+	}
+
+	.article-meta {
+		margin: 0.75rem 0 0;
+	}
+
+	.article-image {
+		display: block;
+		cursor: zoom-in;
+	}
+
+	.article-image img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 3 / 2;
+		object-fit: cover;
+		border-radius: var(--radius);
+		box-shadow: var(--shadow);
+	}
+
+	.article-footer {
+		display: grid;
+		gap: 1rem;
+		margin-top: 2.5rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.article-tags {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0;
+		color: var(--color-text-muted);
+		font-weight: 700;
+	}
+</style>

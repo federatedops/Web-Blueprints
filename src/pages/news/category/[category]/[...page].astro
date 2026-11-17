@@ -1,0 +1,48 @@
+---
+/**
+ * /news/category/<slug>/ (and /2/, /3/ …): the posts in one category. A
+ * page exists for every category used in any post's `categories:`, so a
+ * new category needs no code, only a post that uses it.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import PageBanner from '../../../../components/PageBanner.astro';
+import NewsCard from '../../../../components/NewsCard.astro';
+import NewsSearch from '../../../../components/NewsSearch.astro';
+import Pagination from '../../../../components/Pagination.astro';
+import CategoryChips from '../../../../components/CategoryChips.astro';
+import { getPublishedPosts, categoryLabel, categoryUrl } from '../../../../utils/news';
+
+export const getStaticPaths = (async ({ paginate }) => {
+	const posts = await getPublishedPosts();
+	const categories = [...new Set(posts.flatMap((p) => p.data.categories))];
+	return categories.flatMap((category) =>
+		paginate(
+			posts.filter((p) => p.data.categories.includes(category)),
+			{ params: { category }, props: { category }, pageSize: 9 },
+		),
+	);
+}) satisfies GetStaticPaths;
+
+const { page, category } = Astro.props;
+const allPosts = await getPublishedPosts();
+const label = categoryLabel(category);
+---
+
+<BaseLayout title={`${label} | News`} description={`News posts in ${label}.`}>
+	<PageBanner title={label} eyebrow="News category" />
+
+	<section class="section">
+		<div class="wrap">
+			<NewsSearch category={category} label={label} />
+			<CategoryChips posts={allPosts} active={category} />
+
+			<div class="card-grid" data-static-results>
+				{page.data.map((post) => <NewsCard post={post} />)}
+			</div>
+			<div class="card-grid" data-search-results hidden></div>
+
+			<Pagination page={page} basePath={categoryUrl(category)} />
+		</div>
+	</section>
+</BaseLayout>

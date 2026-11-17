@@ -1,0 +1,127 @@
+---
+/**
+ * The homepage. Composed explicitly, top to bottom, the way it looks:
+ * reusable components, but the order of sections lives right here where
+ * it's easy to read and rearrange.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FeatureRow from '../components/FeatureRow.astro';
+import NewsCard from '../components/NewsCard.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { site } from '../data/site';
+import { withBase } from '../utils/base';
+import { getPublishedPosts } from '../utils/news';
+
+const latest = (await getPublishedPosts()).slice(0, 3);
+---
+
+<BaseLayout title={site.name}>
+	<section class="home-hero">
+		<div class="wrap home-hero-inner">
+			<p class="home-hero-eyebrow">{site.tagline}</p>
+			<h1>Ship a company website the way you ship code.</h1>
+			<p class="home-hero-lede">
+				Content in Markdown, pages built by Astro, hosting on GitHub Pages, and a live preview of every pull request before it merges.
+			</p>
+			<p class="home-hero-actions">
+				<a class="btn btn-accent" href={withBase('/how-it-works/')}>How it works</a>
+				<a class="btn" href="https://github.com/federatedops/Web-Blueprints" target="_blank" rel="noopener">View on GitHub</a>
+			</p>
+		</div>
+	</section>
+
+	<FeatureRow
+		heading="Every pull request gets its own site"
+		paragraphs={[
+			'Open a pull request and a full copy of the site is built and published at its own address, linked from a comment on the PR. Reviewers click through real pages instead of reading diffs.',
+			'Push again and the preview updates. Merge or close the PR and the preview is deleted.',
+		]}
+		image="/media/uploads/2026/11/preview-sites.jpg"
+		imageAlt=""
+		cta={{ label: 'See the CI/CD setup', href: '/how-it-works/' }}
+	/>
+
+	<FeatureRow
+		heading="Editors write Markdown"
+		paragraphs={[
+			'Pages and news posts are plain Markdown files with a few typed fields at the top. A missing or misspelled field fails the build with the file name, so mistakes surface in the pull request, not on the live site.',
+		]}
+		image="/media/uploads/2026/11/markdown-content.jpg"
+		imageAlt=""
+		reverse
+		variant="alt"
+	/>
+
+	<FeatureRow
+		heading="Images sized for you"
+		paragraphs={[
+			'Drop in one large photo. The build makes every size the site needs, in WebP, plus a 1200×630 crop for Facebook, LinkedIn and X share cards.',
+		]}
+		image="/media/uploads/2026/11/image-pipeline.jpg"
+		imageAlt=""
+	/>
+
+	<section class="section section-alt">
+		<div class="wrap">
+			<div class="section-header section-title-row">
+				<h2>Latest news</h2>
+				<span class="heading-line" aria-hidden="true"></span>
+			</div>
+			<div class="card-grid">
+				{latest.map((post) => <NewsCard post={post} />)}
+			</div>
+			<p class="home-more"><a class="btn" href={withBase('/news/')}>All news</a></p>
+		</div>
+	</section>
+
+	<CtaBand title="Start your own site from this blueprint" text="Use it as a GitHub template, change one settings file, and push." button="Get started" href="/how-it-works/" />
+</BaseLayout>
+
+<style>
+	.home-hero {
+		background:
+			radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.07) 0 13rem, transparent 13rem),
+			radial-gradient(circle at 96% 95%, rgba(255, 255, 255, 0.05) 0 20rem, transparent 20rem),
+			linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+		color: #fff;
+	}
+
+	.home-hero-inner {
+		max-width: var(--max-width);
+		padding-top: clamp(3rem, 8vw, 6rem);
+		padding-bottom: clamp(3rem, 8vw, 6rem);
+	}
+
+	h1 {
+		max-width: 20ch;
+		margin: 0;
+		color: #fff;
+		font-size: clamp(2.25rem, 1.4rem + 3.5vw, 4rem);
+	}
+
+	.home-hero-eyebrow {
+		margin: 0 0 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--color-on-primary-muted);
+	}
+
+	.home-hero-lede {
+		max-width: 40rem;
+		font-size: 1.2rem;
+		color: var(--color-on-primary-muted);
+	}
+
+	.home-hero-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin: 2rem 0 0;
+	}
+
+	.home-more {
+		margin: 2rem 0 0;
+		text-align: center;
+	}
+</style>

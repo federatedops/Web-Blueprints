@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+# Every push to main builds the site and publishes it to the root of the
+# gh-pages branch, which GitHub Pages serves at
+#   https://<owner>.github.io/<repo>/        (or your custom domain)
+#
+# Pull-request previews (see preview.yml) live on the same branch under
+# pr-preview/, so this deploy must leave that directory alone.
+#
+# One-time setup: see README.md, "Start a new site from this blueprint".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Never run two production deploys at once; let a running one finish.
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          # Repository variables (Settings > Secrets and variables > Actions >
+          # Variables) override these; leave them unset for a github.io site.
+          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io', github.repository_owner) }}
+          BASE_PATH: ${{ vars.BASE_PATH || format('/{0}', github.event.repository.name) }}
+
+      # Pages would otherwise run Jekyll over the output and drop _astro/.
+      - run: touch dist/.nojekyll
+
+      - uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          branch: gh-pages
+          # Keep every open pull request's preview when replacing the site.
+          clean-exclude: pr-preview/
+          # Rebase onto whatever is on gh-pages (e.g. a preview that just
+          # landed) instead of force-pushing over it.
+          force: false

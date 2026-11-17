@@ -1,0 +1,67 @@
+---
+/**
+ * Share links for the current page (Facebook, LinkedIn, X) and a "copy
+ * link" button. The previews those sites show come from the page's own
+ * og: tags (BaseLayout.astro), including the 1200×630 share image.
+ */
+import { buildShareUrl, type SharePlatform } from '../utils/share';
+
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+const url = new URL(Astro.url.pathname, Astro.site).href;
+const platforms: { id: SharePlatform; label: string }[] = [
+	{ id: 'facebook', label: 'Facebook' },
+	{ id: 'linkedin', label: 'LinkedIn' },
+	{ id: 'x', label: 'X' },
+];
+---
+
+<div class="share-buttons">
+	<span class="share-buttons-label">Share</span>
+	{
+		platforms.map((p) => (
+			<a class="btn" href={buildShareUrl(p.id, url, title)} target="_blank" rel="noopener">
+				{p.label}
+			</a>
+		))
+	}
+	<button type="button" class="btn" data-copy-link={url}>Copy link</button>
+</div>
+
+<style>
+	.share-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.share-buttons-label {
+		margin-right: 0.25rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+	}
+
+	.btn {
+		font-size: 0.9rem;
+		padding: 0.4rem 0.8rem;
+	}
+</style>
+
+<script>
+	document.querySelectorAll<HTMLButtonElement>('[data-copy-link]').forEach((btn) => {
+		btn.addEventListener('click', async () => {
+			try {
+				await navigator.clipboard.writeText(btn.dataset.copyLink ?? location.href);
+				const label = btn.textContent;
+				btn.textContent = 'Copied';
+				setTimeout(() => (btn.textContent = label), 1500);
+			} catch {
+				// Clipboard blocked (e.g. not https): leave the button as it was.
+			}
+		});
+	});
+</script>

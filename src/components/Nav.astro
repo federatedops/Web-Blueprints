@@ -1,0 +1,89 @@
+---
+/**
+ * The header menu. On desktop it's a row with hover/focus dropdowns; at
+ * 860px and under, a hamburger opens it as a full-screen panel. The toggle
+ * is a CSS-only checkbox, so the menu still opens with JavaScript off.
+ */
+import { primaryNav } from '../data/nav';
+import NavMenu from './NavMenu.astro';
+---
+
+<input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true" tabindex="-1" />
+<label for="nav-toggle" class="nav-burger" aria-label="Toggle menu">
+	<span></span><span></span><span></span>
+</label>
+
+<div class="primary-nav">
+	<NavMenu items={primaryNav} ariaLabel="Primary" />
+</div>
+
+<style>
+	.nav-toggle {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.nav-burger {
+		display: none;
+		flex-direction: column;
+		justify-content: center;
+		gap: 5px;
+		width: 2.25rem;
+		height: 2.25rem;
+		cursor: pointer;
+	}
+
+	.nav-burger span {
+		display: block;
+		height: 2px;
+		background: var(--color-heading);
+		border-radius: 1px;
+	}
+
+	@media (max-width: 860px) {
+		.nav-burger {
+			display: flex;
+		}
+
+		.primary-nav {
+			display: none;
+			/* Fixed, so it sizes against the viewport; --header-height (set by
+			   the script below from the real header) puts it right under the
+			   header instead of covering it. */
+			position: fixed;
+			top: var(--header-height, 4.5rem);
+			left: 0;
+			right: 0;
+			height: calc(100dvh - var(--header-height, 4.5rem));
+			z-index: 50;
+			background: var(--color-bg);
+			padding: 1rem 1.5rem;
+			overflow-y: auto;
+		}
+
+		.nav-toggle:checked ~ .primary-nav {
+			display: block;
+		}
+	}
+</style>
+
+<script>
+	// Lines the mobile panel up under the header exactly, and locks the page
+	// behind it from scrolling while it's open.
+	const toggle = document.querySelector<HTMLInputElement>('#nav-toggle');
+	const header = document.querySelector<HTMLElement>('.site-header');
+
+	function syncHeaderHeight() {
+		if (!header) return;
+		document.documentElement.style.setProperty('--header-height', `${header.getBoundingClientRect().bottom}px`);
+	}
+
+	syncHeaderHeight();
+	window.addEventListener('resize', syncHeaderHeight);
+
+	toggle?.addEventListener('change', () => {
+		syncHeaderHeight();
+		document.body.style.overflow = toggle.checked ? 'hidden' : '';
+	});
+</script>

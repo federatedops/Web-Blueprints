@@ -1,0 +1,567 @@
+---
+/**
+ * The page shell every page uses: <head> (title, description, canonical URL,
+ * share-card tags), the header, the footer, the pull-request preview ribbon,
+ * and the site's design tokens and shared styles (the <style is:global>
+ * block below). See docs/developer-guide.md, "Styling".
+ */
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { site } from '../data/site';
+import { socialLinks, socialIcons } from '../data/nav';
+import { withBase } from '../utils/base';
+import { shareImage, type SocialFocus } from '../utils/images';
+
+interface Props {
+	title: string;
+	description?: string;
+	/** Root-relative image path for the share card (og:image). Defaults to
+	 *  site.defaultShareImage. A 1200×630 crop is generated at build time. */
+	image?: string;
+	/** Which part of the image the share crop keeps (default center). */
+	imageFocus?: SocialFocus;
+	/** "article" for news posts, otherwise "website". */
+	type?: 'website' | 'article';
+}
+
+const { title, description = site.description, image, imageFocus = 'center', type = 'website' } = Astro.props;
+
+const fullTitle = title === site.name ? title : `${title} | ${site.name}`;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+
+// Share previews get a generated 1.91:1 crop (1200×630 from a large enough
+// original: the size Facebook, LinkedIn and X all display well). If the
+// image can't be processed, the original is used as-is and no size claimed.
+const sharePath = image ?? site.defaultShareImage;
+const share = await shareImage(sharePath, imageFocus);
+const ogImageURL = new URL(share?.src ?? withBase(sharePath), Astro.site);
+
+// Pull-request preview builds (preview.yml) set these.
+const prNumber = import.meta.env.PUBLIC_PR_NUMBER;
+const repoUrl = import.meta.env.PUBLIC_REPO_URL;
+const noindex = !site.indexable || Boolean(prNumber);
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		{noindex && <meta name="robots" content="noindex, nofollow" />}
+		<link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+		<title>{fullTitle}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonicalURL} />
+
+		<meta property="og:type" content={type} />
+		<meta property="og:site_name" content={site.name} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonicalURL} />
+		<meta property="og:image" content={ogImageURL} />
+		{share && <meta property="og:image:width" content={String(share.width)} />}
+		{share && <meta property="og:image:height" content={String(share.height)} />}
+		<meta property="og:image:alt" content={title} />
+
+		<meta name="twitter:card" content="summary_large_image" />
+		{site.xHandle && <meta name="twitter:site" content={`@${site.xHandle}`} />}
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImageURL} />
+	</head>
+	<body>
+		<a class="skip-link" href="#main">Skip to content</a>
+
+		{
+			prNumber && (
+				<div class="preview-ribbon" role="note">
+					Preview of{' '}
+					{repoUrl ? <a href={`${repoUrl}/pull/${prNumber}`}>pull request #{prNumber}</a> : <>pull request #{prNumber}</>}. This is not the
+					live site.
+				</div>
+			)
+		}
+
+		<header class="site-header">
+			<div class="wrap site-header-inner">
+				<a href={withBase('/')} class="brand">
+					<span class="brand-mark" aria-hidden="true"></span>
+					<span class="brand-text">
+						<span class="brand-name">{site.name}</span>
+						<span class="brand-tagline">{site.tagline}</span>
+					</span>
+				</a>
+				<div class="header-right">
+					<ul class="social-list">
+						{
+							socialLinks.map((link) => (
+								<li>
+									<a href={link.href} target="_blank" rel="noopener" aria-label={link.label}>
+										<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+											<path d={socialIcons[link.label]} />
+										</svg>
+									</a>
+								</li>
+							))
+						}
+					</ul>
+					<Nav />
+				</div>
+			</div>
+		</header>
+
+		<main id="main">
+			<slot />
+		</main>
+
+		<Footer />
+	</body>
+</html>
+
+<style is:global>
+	/* ------------------------------------------------------------------
+	   Design tokens. Change the look of the whole site here. Components
+	   only ever use these variables, never raw colors, so a rebrand is an
+	   edit to this block (docs/developer-guide.md, "Styling").
+	   ------------------------------------------------------------------ */
+	:root {
+		--color-primary: #1d4e89;
+		--color-primary-dark: #133761;
+		--color-accent: #e07a1f;
+		--color-accent-dark: #b85f0f;
+
+		--color-bg: #ffffff;
+		--color-bg-alt: #f4f6f9;
+		--color-heading: var(--color-primary);
+		--color-text: #2b2f36;
+		--color-text-muted: #6b7380;
+		--color-border: #e3e7ed;
+		/* Muted text on the dark primary background (banners). */
+		--color-on-primary-muted: #c9d8ec;
+
+		--font-heading: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+		--font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+		--radius: 0.75rem;
+		--shadow: 0 0.3rem 1.2rem rgba(19, 55, 97, 0.14);
+		--shadow-hover: 0 0.6rem 1.6rem rgba(19, 55, 97, 0.22);
+
+		--max-width: 75rem;
+
+		/* Vertical padding of standard content sections. Change it here to
+		   adjust every section at once; add .pad-sm to one section to make
+		   that section tighter (see .pad-sm below for why it works this way). */
+		--content-section-padding: 3.5rem;
+
+		/* Button colors. .btn reads these; .btn-primary/.btn-accent only
+		   swap them, so hover/focus rules are written once. */
+		--btn-text: var(--color-primary);
+		--btn-bg: #ffffff;
+		--btn-border: var(--color-border);
+		--btn-text-hover: var(--color-primary-dark);
+		--btn-bg-hover: var(--color-bg-alt);
+		--btn-border-hover: var(--color-primary);
+
+		color-scheme: light;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		margin: 0;
+		font-family: var(--font-body);
+		color: var(--color-text);
+		background: var(--color-bg);
+		line-height: 1.65;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-heading);
+		color: var(--color-heading);
+		line-height: 1.2;
+		font-weight: 600;
+	}
+
+	h2 {
+		font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+	}
+
+	a {
+		color: var(--color-accent-dark);
+	}
+
+	a:hover {
+		color: var(--color-primary);
+	}
+
+	img {
+		max-width: 100%;
+		height: auto;
+	}
+
+	main {
+		min-height: 60vh;
+	}
+
+	:focus-visible {
+		outline: 3px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+
+	/* ------------------------------------------------------------------
+	   Layout helpers
+	   ------------------------------------------------------------------ */
+	.wrap {
+		max-width: var(--max-width);
+		margin: 0 auto;
+		padding: 0 1.5rem;
+	}
+
+	.section {
+		padding: var(--content-section-padding) 0;
+	}
+
+	.section-alt {
+		background: var(--color-bg-alt);
+	}
+
+	/* Opts one section into tighter vertical padding: class="section pad-sm".
+	   It overrides the custom property, not `padding` itself. That matters:
+	   Astro adds a hidden attribute to every selector in a component's own
+	   <style> block, which makes them more specific than any plain global
+	   class, so a global `padding:` override would lose. Feeding the
+	   component's single padding rule a different value sidesteps that
+	   fight. Reuse this pattern for any global override of a scoped style. */
+	.pad-sm {
+		--content-section-padding: 1.5rem;
+	}
+
+	.section-header {
+		margin-bottom: 2rem;
+	}
+
+	.section-header p {
+		color: var(--color-text-muted);
+		max-width: 42rem;
+	}
+
+	.section-title-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.section-title-row h2 {
+		margin: 0;
+	}
+
+	/* Opt-in fading accent rule after a heading. Put an empty
+	   <span class="heading-line" aria-hidden="true"></span> right after the
+	   heading inside a flex row (.section-title-row). */
+	.heading-line {
+		flex: 1 1 3rem;
+		min-width: 3rem;
+		height: 2px;
+		background: linear-gradient(to right, var(--color-accent), transparent);
+	}
+
+	.card-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+		gap: 1.5rem;
+	}
+
+	.card-grid[hidden] {
+		display: none !important;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.skip-link {
+		position: absolute;
+		left: 1rem;
+		top: -3rem;
+		z-index: 100;
+		padding: 0.5rem 1rem;
+		background: var(--color-primary);
+		color: #fff;
+		border-radius: 0 0 0.5rem 0.5rem;
+	}
+
+	.skip-link:focus {
+		top: 0;
+		color: #fff;
+	}
+
+	/* ------------------------------------------------------------------
+	   Buttons: one rule, colored by custom properties. A new button color
+	   is a new class that only sets --btn-* values.
+	   ------------------------------------------------------------------ */
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.6rem 1.15rem;
+		border-radius: 0.5rem;
+		font-family: var(--font-heading);
+		font-weight: 600;
+		font-size: 1rem;
+		text-decoration: none;
+		color: var(--btn-text);
+		background: var(--btn-bg);
+		border: 1px solid var(--btn-border);
+		cursor: pointer;
+		transition:
+			background 0.15s ease,
+			border-color 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.btn:hover,
+	.btn:focus-visible,
+	.btn.is-active {
+		color: var(--btn-text-hover);
+		background: var(--btn-bg-hover);
+		border-color: var(--btn-border-hover);
+	}
+
+	.btn-primary {
+		--btn-text: #fff;
+		--btn-bg: var(--color-primary);
+		--btn-border: var(--color-primary);
+		--btn-text-hover: #fff;
+		--btn-bg-hover: var(--color-primary-dark);
+		--btn-border-hover: var(--color-primary-dark);
+	}
+
+	.btn-accent {
+		--btn-text: #fff;
+		--btn-bg: var(--color-accent);
+		--btn-border: var(--color-accent-dark);
+		--btn-text-hover: #fff;
+		--btn-bg-hover: var(--color-accent-dark);
+		--btn-border-hover: var(--color-accent-dark);
+	}
+
+	/* ------------------------------------------------------------------
+	   Chips (category filters, tags)
+	   ------------------------------------------------------------------ */
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.35rem 0.8rem;
+		border-radius: 999px;
+		background: var(--color-bg-alt);
+		color: var(--color-primary);
+		text-decoration: none;
+		font-size: 0.85rem;
+		font-weight: 600;
+		border: 1px solid transparent;
+	}
+
+	.chip:hover {
+		border-color: var(--color-accent);
+		color: var(--color-accent-dark);
+	}
+
+	.chip.is-active {
+		background: var(--color-primary);
+		color: #fff;
+	}
+
+	/* ------------------------------------------------------------------
+	   Long-form text (Markdown pages and news posts)
+	   ------------------------------------------------------------------ */
+	.prose {
+		font-size: 1.125rem;
+		line-height: 1.7;
+	}
+
+	.prose h2 {
+		font-size: 1.75rem;
+		margin-top: 2.5rem;
+	}
+
+	.prose h3 {
+		font-size: 1.35rem;
+		margin-top: 1.75rem;
+	}
+
+	.prose p,
+	.prose ul,
+	.prose ol {
+		margin: 1em 0;
+	}
+
+	.prose li + li {
+		margin-top: 0.4em;
+	}
+
+	.prose img {
+		display: block;
+		margin: 1.5rem 0;
+		border-radius: 0.5rem;
+	}
+
+	.prose a {
+		text-decoration: underline;
+	}
+
+	.prose pre {
+		padding: 1rem 1.25rem;
+		border-radius: 0.5rem;
+		overflow-x: auto;
+		font-size: 0.9rem;
+	}
+
+	.prose :not(pre) > code {
+		padding: 0.1em 0.35em;
+		border-radius: 0.3em;
+		background: var(--color-bg-alt);
+		font-size: 0.9em;
+	}
+
+	.prose table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.95rem;
+	}
+
+	.prose th,
+	.prose td {
+		padding: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--color-border);
+		text-align: left;
+	}
+
+	.prose blockquote {
+		margin: 1.5rem 0;
+		padding: 0.25rem 1.25rem;
+		border-left: 4px solid var(--color-accent);
+		color: var(--color-text-muted);
+	}
+
+	/* ------------------------------------------------------------------
+	   Header pieces shared with the footer
+	   ------------------------------------------------------------------ */
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		text-decoration: none;
+	}
+
+	.brand-mark {
+		width: 2.5rem;
+		height: 2.5rem;
+		flex: none;
+		border-radius: 0.6rem;
+		background:
+			linear-gradient(135deg, transparent 50%, var(--color-accent) 50%),
+			var(--color-primary);
+	}
+
+	.brand-text {
+		display: flex;
+		flex-direction: column;
+		line-height: 1.15;
+	}
+
+	.brand-name {
+		font-family: var(--font-heading);
+		font-weight: 700;
+		font-size: 1.3rem;
+		color: var(--color-primary);
+	}
+
+	.brand-tagline {
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+	}
+
+	.social-list {
+		list-style: none;
+		display: flex;
+		margin: 0;
+		padding: 0;
+		gap: 0.9rem;
+	}
+
+	.social-list a {
+		display: flex;
+		color: var(--color-text-muted);
+	}
+
+	.social-list a:hover {
+		color: var(--color-accent);
+	}
+
+	/* Pull-request previews only (see preview.yml). */
+	.preview-ribbon {
+		padding: 0.45rem 1.5rem;
+		background: #fff4d6;
+		border-bottom: 1px solid #f0d58a;
+		color: #5c4400;
+		font-size: 0.9rem;
+		text-align: center;
+	}
+
+	.preview-ribbon a {
+		color: inherit;
+		font-weight: 700;
+	}
+</style>
+
+<style>
+	.site-header {
+		position: relative;
+		z-index: 60;
+		border-bottom: 1px solid var(--color-border);
+		background: var(--color-bg);
+	}
+
+	.site-header-inner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1.5rem;
+		padding-top: 0.9rem;
+		padding-bottom: 0.9rem;
+	}
+
+	.header-right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.5rem;
+	}
+
+	@media (max-width: 860px) {
+		.header-right {
+			flex-direction: row-reverse;
+			align-items: center;
+			gap: 1rem;
+		}
+
+		.brand-tagline {
+			display: none;
+		}
+	}
+</style>

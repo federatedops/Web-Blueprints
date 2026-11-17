@@ -1,0 +1,44 @@
+---
+/**
+ * /news/, /news/2/, /news/3/ …: every published post, newest first, with
+ * category chips and a search box that searches the whole archive.
+ * `[...page]` is Astro's naming for a paginated route.
+ */
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageBanner from '../../components/PageBanner.astro';
+import NewsCard from '../../components/NewsCard.astro';
+import NewsSearch from '../../components/NewsSearch.astro';
+import Pagination from '../../components/Pagination.astro';
+import CategoryChips from '../../components/CategoryChips.astro';
+import { withBase } from '../../utils/base';
+import { getPublishedPosts } from '../../utils/news';
+
+export const getStaticPaths = (async ({ paginate }) => {
+	return paginate(await getPublishedPosts(), { pageSize: 9 });
+}) satisfies GetStaticPaths;
+
+const { page } = Astro.props;
+const allPosts = await getPublishedPosts();
+const title = page.currentPage === 1 ? 'News' : `News, page ${page.currentPage}`;
+---
+
+<BaseLayout title={title} description="News, announcements and guides.">
+	<PageBanner title="News" eyebrow="Latest">
+		<p>Announcements, guides and updates.</p>
+	</PageBanner>
+
+	<section class="section">
+		<div class="wrap">
+			<NewsSearch />
+			<CategoryChips posts={allPosts} />
+
+			<div class="card-grid" data-static-results>
+				{page.data.map((post, i) => <NewsCard post={post} loading={i < 3 ? 'eager' : 'lazy'} />)}
+			</div>
+			<div class="card-grid" data-search-results hidden></div>
+
+			<Pagination page={page} basePath={withBase('/news/')} />
+		</div>
+	</section>
+</BaseLayout>

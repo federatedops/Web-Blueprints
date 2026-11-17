@@ -1,0 +1,39 @@
+---
+/**
+ * <img> for a "/media/..." path string (the kind stored in frontmatter).
+ *
+ * - File under src/assets/media/: resized and re-encoded by Astro's image
+ *   pipeline (WebP, with the requested width).
+ * - A GIF: copied through untouched, since resizing keeps only the first
+ *   frame and would kill an animation.
+ * - Anything else (e.g. only in public/): served as-is from the base path.
+ *
+ * So a missing optimization never breaks the page; it just isn't optimized.
+ */
+import { Image } from 'astro:assets';
+import { withBase } from '../utils/base';
+import { resolveMedia } from '../utils/media';
+
+interface Props {
+	path: string;
+	alt: string;
+	width: number;
+	loading?: 'eager' | 'lazy';
+	class?: string;
+	sizes?: string;
+}
+
+const { path, alt, width, loading = 'lazy', class: className, ...rest } = Astro.props;
+const asset = resolveMedia(path);
+const isGif = /\.gif$/i.test(path);
+---
+
+{
+	asset && !isGif ? (
+		<Image src={asset} alt={alt} width={width} loading={loading} class={className} {...rest} />
+	) : asset ? (
+		<img src={asset.src} width={asset.width} height={asset.height} alt={alt} loading={loading} class={className} {...rest} />
+	) : (
+		<img src={withBase(path)} alt={alt} loading={loading} class={className} {...rest} />
+	)
+}

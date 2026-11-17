@@ -1,0 +1,225 @@
+---
+import type { NavLink } from '../data/nav';
+import { withBase } from '../utils/base';
+
+interface Props {
+	items: NavLink[];
+	ariaLabel: string;
+}
+
+const { items, ariaLabel } = Astro.props;
+
+const pathname = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
+const home = withBase('/');
+
+// Which top-level item is active: the one whose own link (or one of its
+// children's) is the longest prefix of the current URL. Taking only the
+// most specific match means a section nested under another's URL (say
+// /news/category/guides/ under /news/) lights up its own item, not both.
+// Home only matches itself, or every page would match it.
+function matchLength(href: string): number {
+	const full = withBase(href);
+	if (full === home) return pathname === home ? full.length : -1;
+	return pathname.startsWith(full) ? full.length : -1;
+}
+
+function itemMatchLength(item: NavLink): number {
+	const own = item.external ? -1 : matchLength(item.href);
+	const children = (item.children ?? []).filter((c) => !c.external).map((c) => matchLength(c.href));
+	return Math.max(own, -1, ...children);
+}
+
+const best = Math.max(-1, ...items.map(itemMatchLength));
+const isActive = (item: NavLink) => best >= 0 && itemMatchLength(item) === best;
+const isCurrent = (link: NavLink) => !link.external && withBase(link.href) === pathname;
+const linkAttrs = (link: NavLink) =>
+	link.external ? { href: link.href, target: '_blank', rel: 'noopener' } : { href: withBase(link.href) };
+---
+
+<nav aria-label={ariaLabel} class="nav-menu">
+	<ul>
+		{
+			items.map((item) => (
+				<li class:list={{ 'has-children': item.children }}>
+					<a
+						{...linkAttrs(item)}
+						class:list={{ 'is-active': isActive(item) }}
+						aria-current={isCurrent(item) ? 'page' : undefined}
+						aria-haspopup={item.children ? 'true' : undefined}
+						aria-expanded={item.children ? 'false' : undefined}
+					>
+						{item.label}
+						{item.children && (
+							<svg class="nav-chevron" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+								<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M2 4l4 4 4-4" />
+							</svg>
+						)}
+					</a>
+					{item.children && (
+						<ul class="submenu">
+							{item.children.map((child) => (
+								<li>
+									<a {...linkAttrs(child)} class:list={{ 'is-active': isCurrent(child) }} aria-current={isCurrent(child) ? 'page' : undefined}>
+										{child.label}
+										{child.external && <span aria-hidden="true"> ↗</span>}
+									</a>
+								</li>
+							))}
+						</ul>
+					)}
+				</li>
+			))
+		}
+	</ul>
+</nav>
+
+<style>
+	ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	li {
+		position: relative;
+	}
+
+	.nav-menu > ul {
+		display: flex;
+		gap: 0.25rem;
+	}
+
+	.nav-menu > ul > li > a {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		color: var(--color-text);
+		font-family: var(--font-heading);
+		font-weight: 500;
+		text-decoration: none;
+		transition:
+			background 0.15s ease,
+			color 0.15s ease;
+	}
+
+	.nav-menu > ul > li > a:hover,
+	.nav-menu > ul > li > a:focus-visible,
+	.nav-menu > ul > li > a.is-active {
+		color: var(--color-primary);
+		background: var(--color-bg-alt);
+	}
+
+	.nav-chevron {
+		transition: transform 0.25s ease;
+	}
+
+	.has-children:hover .nav-chevron,
+	.has-children:focus-within .nav-chevron {
+		transform: rotate(180deg);
+	}
+
+	.submenu {
+		display: none;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		min-width: 13rem;
+		padding: 0.4rem;
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: 0.6rem;
+		box-shadow: var(--shadow);
+		z-index: 20;
+	}
+
+	.has-children:hover .submenu,
+	.has-children:focus-within .submenu {
+		display: block;
+	}
+
+	.submenu a {
+		display: block;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.4rem;
+		color: var(--color-text);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.submenu a:hover,
+	.submenu a:focus-visible,
+	.submenu a.is-active {
+		color: var(--color-primary);
+		background: var(--color-bg-alt);
+	}
+
+	/* Phones: a stacked list, each dropdown a click-to-open accordion (see
+	   the script). Hover reveals are switched off so a lingering touch
+	   "hover" can't fight with .is-open. */
+	@media (max-width: 860px) {
+		.nav-menu > ul {
+			flex-direction: column;
+		}
+
+		.nav-menu > ul > li > a {
+			justify-content: space-between;
+			font-size: 1.25rem;
+			padding: 0.75rem;
+		}
+
+		.submenu,
+		.has-children:hover .submenu,
+		.has-children:focus-within .submenu {
+			display: none;
+			position: static;
+			border: 0;
+			box-shadow: none;
+			padding: 0 0 0.5rem 1rem;
+		}
+
+		.has-children.is-open .submenu {
+			display: block;
+		}
+
+		.submenu a {
+			font-size: 1.1rem;
+		}
+
+		.has-children:hover .nav-chevron,
+		.has-children:focus-within .nav-chevron {
+			transform: none;
+		}
+
+		.has-children.is-open .nav-chevron {
+			transform: rotate(180deg);
+		}
+	}
+</style>
+
+<script>
+	// Phones: tapping a top-level item with a dropdown opens it (and closes
+	// any other) instead of following its link.
+	const MOBILE = window.matchMedia('(max-width: 860px)');
+
+	document.querySelectorAll<HTMLElement>('.nav-menu').forEach((nav) => {
+		const items = Array.from(nav.querySelectorAll<HTMLLIElement>(':scope > ul > li.has-children'));
+		items.forEach((li) => {
+			const link = li.querySelector<HTMLAnchorElement>(':scope > a');
+			link?.addEventListener('click', (e) => {
+				if (!MOBILE.matches) return;
+				e.preventDefault();
+				const wasOpen = li.classList.contains('is-open');
+				items.forEach((other) => {
+					other.classList.remove('is-open');
+					other.querySelector(':scope > a')?.setAttribute('aria-expanded', 'false');
+				});
+				if (!wasOpen) {
+					li.classList.add('is-open');
+					link.setAttribute('aria-expanded', 'true');
+				}
+			});
+		});
+	});
+</script>

@@ -1,0 +1,80 @@
+---
+/**
+ * A full-width call-to-action band. The whole band is one link; the
+ * "button" is a styled <span> (a link can't contain another link) that
+ * lights up when the band is hovered. A full http(s) URL opens in a new tab.
+ */
+import { withBase } from '../utils/base';
+
+interface Props {
+	title: string;
+	text?: string;
+	button?: string;
+	href: string;
+	class?: string;
+}
+
+const { title, text, button = 'Learn More', href, class: className } = Astro.props;
+const isExternal = /^https?:\/\//.test(href);
+---
+
+<a
+	class:list={['cta-band', className]}
+	href={isExternal ? href : withBase(href)}
+	target={isExternal ? '_blank' : undefined}
+	rel={isExternal ? 'noopener' : undefined}
+>
+	<div class="wrap cta-band-inner">
+		<div>
+			<h2>{title}</h2>
+			{text && <p>{text}</p>}
+		</div>
+		<span class="btn btn-primary">{button}</span>
+	</div>
+</a>
+
+<style>
+	.cta-band {
+		display: block;
+		background: linear-gradient(120deg, var(--color-accent), var(--color-accent-dark));
+		color: #fff;
+		text-decoration: none;
+	}
+
+	.cta-band-inner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1.5rem;
+		padding-top: 2rem;
+		padding-bottom: 2rem;
+	}
+
+	h2 {
+		margin: 0;
+		color: #fff;
+		font-size: clamp(1.4rem, 1rem + 1.5vw, 2rem);
+	}
+
+	p {
+		margin: 0.35rem 0 0;
+		color: rgba(255, 255, 255, 0.9);
+	}
+
+	.btn {
+		flex: none;
+	}
+
+	.cta-band:hover .btn,
+	.cta-band:focus-visible .btn {
+		--btn-bg: var(--color-primary-dark);
+		--btn-border: var(--color-primary-dark);
+	}
+
+	@media (max-width: 40em) {
+		.cta-band-inner {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+	}
+</style>
